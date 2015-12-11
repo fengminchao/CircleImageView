@@ -13,6 +13,7 @@ import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.BitmapDrawable;
 import android.os.Bundle;
@@ -21,12 +22,16 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
 import android.view.MotionEvent;
+
 import android.view.View;
+import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+
+import java.io.ByteArrayOutputStream;
 
 
 /**
@@ -50,7 +55,11 @@ public class EditActivity extends Activity implements View.OnClickListener {
     private float dy = 0;
     private float scaling = 1;
     private float r;
-    private Intent intent;
+    Bitmap bitmap;
+    float values [];
+    private PointF left,right;
+    private FrameLayout frameLayout;
+    private int width,height;
 
     @Override
     protected void onCreate(final Bundle saveInstance) {
@@ -60,21 +69,19 @@ public class EditActivity extends Activity implements View.OnClickListener {
         back = (Button) findViewById(R.id.back);
         image = (ImageView)findViewById(R.id.image);
         change = (Button)findViewById(R.id.change);
+        frameLayout = (FrameLayout)findViewById(R.id.frameLayout);
+        values = new float[9];
+
         WindowManager windowManager = getWindowManager();
         Display display = windowManager.getDefaultDisplay();
         DisplayMetrics metrics = new DisplayMetrics();
         display.getMetrics(metrics);
-        r = metrics.widthPixels/5;
-        intent = new Intent(EditActivity.this,MainActivity.class);
+        width = metrics.widthPixels;
+        height = metrics.heightPixels;
         save.setOnClickListener(this);
         back.setOnClickListener(this);
         change.setOnClickListener(this);
-//        image.setLeft(20);
-//        image.setTop(20);
-//
-//        image.getMaxHeight();
         image.setImageResource(imageId[i]);
-
         image.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
@@ -100,10 +107,30 @@ public class EditActivity extends Activity implements View.OnClickListener {
                         break;
                     case (MotionEvent.ACTION_MOVE):
                         if(mode == DRAG){
+                            left = getLeftPointF();
+                            right = getRightPointF();
+
+                            if(left.x>0 && left.y>0 && right.x<frameLayout.getWidth()&& right.y<frameLayout.getHeight())
                             matrix.set(savedMatrix);
                             matrix.postTranslate(event.getX() - start.x, event.getY() - start.y);
                             dx = dx+event.getX()-start.x;
                             dy = dy+event.getY()-start.y;
+                        }
+                       if (left.x<=0){
+                            matrix.set((savedMatrix));
+                            matrix.postTranslate((event.getX()-start.x)>0?(event.getX()-start.x):0,event.getY() - start.y);
+                        }
+                       if(right.x>=frameLayout.getWidth()){
+                           matrix.set((savedMatrix));
+                           matrix.postTranslate(0,event.getY() - start.y);
+                       }
+                        if(right.y>=frameLayout.getHeight()){
+                            matrix.set((savedMatrix));
+                            matrix.postTranslate(event.getX()-start.x,0);
+                        }
+                        if(left.y<0){
+                            matrix.set((savedMatrix));
+                            matrix.postTranslate(event.getX()-start.x,0);
                         }
                         else if(mode == ZOOM){
                             float newDistance = distance(event);
@@ -128,29 +155,52 @@ public class EditActivity extends Activity implements View.OnClickListener {
     private float distance(MotionEvent event){
         float x = event.getX(0)-event.getX(1);
         float y = event.getY(0)-event.getY(1);
-        return (float)Math.sqrt(x*x+y*y);
+        return (float)Math.sqrt(x*x+y* y);
     }
-    private PointF mid(MotionEvent event){
+
+    private PointF mid(MotionEvent event) {
         float x = event.getX(0)+event.getX(1);
         float y = event.getY(0)+event.getY(1);
         return new PointF(x/2,y/2);
     }
-
+    //获取图片的上坐标
+    private PointF getLeftPointF()
+    {
+        Rect rectTemp = image.getDrawable().getBounds();
+        float[] values = new float[9];
+        matrix.getValues(values);
+        float leftX=values[2];
+        float leftY=values[5];
+        return new PointF(leftX,leftY);
+    }
+    //获取图片的下坐标
+    private PointF getRightPointF()
+    {
+        Rect rectTemp = image.getDrawable().getBounds();
+        float[] values = new float[9];
+        matrix.getValues(values);
+        float leftX= values[2]+rectTemp.width()*values[0];
+        float leftY=values[5]+rectTemp.height()*values[4];
+        return new PointF(leftX,leftY);
+    }
     @Override
     public void onClick(View v){
         switch ((v.getId())){
             case R.id.save:
-                Bundle bundle = new Bundle();
-                bundle.putFloat("scale",scaling);
-                bundle.getFloat("x",image.getX());
-                bundle.getFloat("y",image.getY());
-                bundle.putFloat("dx",dx);
-                bundle.putFloat("dy",dy);
-                bundle.putFloat("r",r);
-                bundle.putInt("id",i);
-                intent.putExtras(bundle);
-                startActivity(intent);
-                finish();
+                Intent intent = new Intent();
+                //此处出错
+                bitmap = Bitmap.createBitmap(((BitmapDrawable) image.getDrawable()).getBitmap(),
+                         (324),
+                         (324),
+                         (432),
+                         (432));
+
+                    ByteArrayOutputStream stream = new ByteArrayOutputStream();
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
+                    byte[] bytes = stream.toByteArray();
+                    intent.putExtra("bitmap", bytes);
+                    setResult(RESULT_OK, intent);
+                    finish();
                 break;
             case R.id.back:
                 finish();
@@ -163,5 +213,16 @@ public class EditActivity extends Activity implements View.OnClickListener {
                 image.setImageResource(imageId[i]);
                 break;
         }
+    }
+    public static Bitmap scaleDownBitmap(Bitmap photo, int newHeight, Context context) {
+
+        final float densityMultiplier = context.getResources().getDisplayMetrics().density;
+
+        int h= (int) (newHeight*densityMultiplier);
+        int w= (int) (h * photo.getWidth()/((double) photo.getHeight()));
+
+        photo=Bitmap.createScaledBitmap(photo, w, h, true);
+
+        return photo;
     }
 }

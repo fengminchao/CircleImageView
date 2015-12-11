@@ -2,6 +2,7 @@ package com.example.fengminchao.circleimageview;
 
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
@@ -23,29 +24,19 @@ public class MainActivity extends AppCompatActivity {
 Button btn;
     private Bitmap bitmap;
     private int height;
+    ImageView imageView;
     private int width;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         btn = (Button)findViewById(R.id.btn);
-        Bundle b = getIntent().getExtras();
-        if(b!=null){
-        Log.w("xxx", String.valueOf(b.getFloat("x")));
-//        Log.w
-        ImageView imageView = (ImageView)findViewById(R.id.imageView);
-        imageView.setImageResource(image[b.getInt("id")]);
-        bitmap = ((BitmapDrawable)imageView.getDrawable()).getBitmap();
-        height = bitmap.getHeight();
-        width = bitmap.getWidth();
-//        bitmap.createBitmap(bitmap,)
-        imageView.setImageBitmap(toRoundBitmap(bitmap));}
-
+        imageView = (ImageView)findViewById(R.id.imageView);
         btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 intent = new Intent(MainActivity.this,EditActivity.class);
-                startActivity(intent);
+                startActivityForResult(intent,1);
             }
         });
     }
@@ -70,5 +61,17 @@ Button btn;
         return backgroundBmp;
     }
 
-
+    @Override
+    protected void onActivityResult(int requestCode,int resultCode,Intent data){
+        switch (requestCode) {
+            case 1:
+            if (resultCode == RESULT_OK) {
+                byte[] bytes = data.getByteArrayExtra("bitmap");
+                Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                imageView.setImageBitmap(bitmap);
+            }
+                break;
+            default:
+        }
+    }
 }

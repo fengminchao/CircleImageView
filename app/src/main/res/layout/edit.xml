@@ -13,9 +13,6 @@
             android:scaleType="matrix"
             android:layout_gravity="center"
             android:id="@+id/image"/>
-        <com.example.fengminchao.circleimageview.MyView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content" />
     </FrameLayout>
 
     <LinearLayout

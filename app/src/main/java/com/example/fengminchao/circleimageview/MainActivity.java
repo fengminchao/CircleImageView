@@ -20,18 +20,16 @@ import android.widget.ImageView;
 
 public class MainActivity extends AppCompatActivity {
     private Intent intent;
-    int image[] = new int[]{R.drawable.b,R.drawable.c,R.drawable.d};
 Button btn;
     private Bitmap bitmap;
-    private int height;
     ImageView imageView;
-    private int width;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         btn = (Button)findViewById(R.id.btn);
         imageView = (ImageView)findViewById(R.id.imageView);
+
         btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -40,15 +38,11 @@ Button btn;
             }
         });
     }
+    //转换成圆形头像
     public Bitmap toRoundBitmap(Bitmap bitmap) {
         int width = bitmap.getWidth();
         int height = bitmap.getHeight();
-        int r = 0;
-        if(width > height) {
-            r = height;
-        } else {
-            r = width;
-        }
+        int r = width;
         Bitmap backgroundBmp = Bitmap.createBitmap(width,
                 height, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(backgroundBmp);
@@ -68,7 +62,7 @@ Button btn;
             if (resultCode == RESULT_OK) {
                 byte[] bytes = data.getByteArrayExtra("bitmap");
                 Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
-                imageView.setImageBitmap(bitmap);
+                imageView.setImageBitmap(toRoundBitmap(bitmap));
             }
                 break;
             default:

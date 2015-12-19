@@ -60,6 +60,9 @@ public class EditActivity extends Activity implements View.OnClickListener {
     private PointF left,right;
     private FrameLayout frameLayout;
     private int width,height;
+    private PointF resleft,resright;
+    private float imageWidth,imageHeight;
+    CropView cropView;
 
     @Override
     protected void onCreate(final Bundle saveInstance) {
@@ -71,7 +74,6 @@ public class EditActivity extends Activity implements View.OnClickListener {
         change = (Button)findViewById(R.id.change);
         frameLayout = (FrameLayout)findViewById(R.id.frameLayout);
         values = new float[9];
-
         WindowManager windowManager = getWindowManager();
         Display display = windowManager.getDefaultDisplay();
         DisplayMetrics metrics = new DisplayMetrics();
@@ -82,20 +84,26 @@ public class EditActivity extends Activity implements View.OnClickListener {
         back.setOnClickListener(this);
         change.setOnClickListener(this);
         image.setImageResource(imageId[i]);
+        resleft = getLeftPointF();
+        resright = getRightPointF();
+        cropView = new CropView(this);
+        frameLayout.addView(cropView);
+        //图片的移动和缩放
         image.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 ImageView view = (ImageView) v;
-                switch (event.getAction()&MotionEvent.ACTION_MASK){
+
+                switch (event.getAction() & MotionEvent.ACTION_MASK) {
                     case (MotionEvent.ACTION_DOWN):
                         matrix.set(view.getImageMatrix());
                         savedMatrix.set(matrix);
-                        start.set(event.getX(),event.getY());
+                        start.set(event.getX(), event.getY());
                         mode = DRAG;
                         break;
                     case (MotionEvent.ACTION_POINTER_DOWN):
                         oldDistance = distance(event);
-                        if(oldDistance > 10f){
+                        if (oldDistance > 10f) {
                             mode = ZOOM;
                             savedMatrix.set(matrix);
                             mid = mid(event);
@@ -106,39 +114,43 @@ public class EditActivity extends Activity implements View.OnClickListener {
                         mode = NONE;
                         break;
                     case (MotionEvent.ACTION_MOVE):
-                        if(mode == DRAG){
+                        if (mode == DRAG) {
                             left = getLeftPointF();
                             right = getRightPointF();
 
-                            if(left.x>0 && left.y>0 && right.x<frameLayout.getWidth()&& right.y<frameLayout.getHeight())
-                            matrix.set(savedMatrix);
-                            matrix.postTranslate(event.getX() - start.x, event.getY() - start.y);
-                            dx = dx+event.getX()-start.x;
-                            dy = dy+event.getY()-start.y;
-                        }
-                       if (left.x<=0){
-                            matrix.set((savedMatrix));
-                            matrix.postTranslate((event.getX()-start.x)>0?(event.getX()-start.x):0,event.getY() - start.y);
-                        }
-                       if(right.x>=frameLayout.getWidth()){
-                           matrix.set((savedMatrix));
-                           matrix.postTranslate(0,event.getY() - start.y);
-                       }
-                        if(right.y>=frameLayout.getHeight()){
-                            matrix.set((savedMatrix));
-                            matrix.postTranslate(event.getX()-start.x,0);
-                        }
-                        if(left.y<0){
-                            matrix.set((savedMatrix));
-                            matrix.postTranslate(event.getX()-start.x,0);
-                        }
-                        else if(mode == ZOOM){
-                            float newDistance = distance(event);
-                            if(oldDistance > 10f){
+                            if (left.x > 0 && left.y > 0 && right.x < frameLayout.getWidth() && right.y < frameLayout.getHeight())
                                 matrix.set(savedMatrix);
-                                float scale = newDistance/oldDistance;
-                                scaling = scaling*scale;
-                                matrix.postScale(scale,scale,mid.x,mid.y);
+                            matrix.postTranslate(event.getX() - start.x, event.getY() - start.y);
+                            dx = dx + event.getX() - start.x;
+                            dy = dy + event.getY() - start.y;
+                            imageWidth = right.x-left.x;
+                            imageHeight = right.y - left.y;
+                        }
+                        if (left.x <= 0) {
+                            matrix.set((savedMatrix));
+                            matrix.postTranslate((event.getX() - start.x) >= 0 ? (event.getX() - start.x) : 0, event.getY() - start.y);
+                        }
+                        if (right.x >= frameLayout.getWidth()) {
+                            matrix.set((savedMatrix));
+                            matrix.postTranslate((event.getX() - start.x) <= 0 ? (event.getX() - start.x) : 0, event.getY() - start.y);
+                        }
+                        if (right.y >= frameLayout.getHeight()) {
+                            matrix.set((savedMatrix));
+                            matrix.postTranslate(event.getX()-start.x, (event.getY()-start.y) <= 0 ? (event.getY()-start.y) : 0);
+                        }
+                        if (left.y <= 0) {
+                            matrix.set((savedMatrix));
+                            matrix.postTranslate(event.getX()-start.x, (event.getY()-start.y) >= 0 ? (event.getY()-start.y) : 0);
+
+                        } else if (mode == ZOOM) {
+                            left = getLeftPointF();
+                            right = getRightPointF();
+                            float newDistance = distance(event);
+                            if (oldDistance > 10f) {
+                                matrix.set(savedMatrix);
+                                float scale = newDistance / oldDistance;
+                                scaling = scaling * scale;
+                                matrix.postScale(scale, scale, mid.x, mid.y);
                             }
                         }
                         break;
@@ -147,10 +159,6 @@ public class EditActivity extends Activity implements View.OnClickListener {
                 return true;
             }
         });
-//        Bitmap images = ((BitmapDrawable)image.getDrawable()).getBitmap();
-//        image.setImageBitmap(toRoundBitmap(images));
-//        Bitmap
-
     }
     private float distance(MotionEvent event){
         float x = event.getX(0)-event.getX(1);
@@ -163,7 +171,7 @@ public class EditActivity extends Activity implements View.OnClickListener {
         float y = event.getY(0)+event.getY(1);
         return new PointF(x/2,y/2);
     }
-    //获取图片的上坐标
+    //获取图片的左上坐标
     private PointF getLeftPointF()
     {
         Rect rectTemp = image.getDrawable().getBounds();
@@ -173,7 +181,7 @@ public class EditActivity extends Activity implements View.OnClickListener {
         float leftY=values[5];
         return new PointF(leftX,leftY);
     }
-    //获取图片的下坐标
+    //获取图片的右下坐标
     private PointF getRightPointF()
     {
         Rect rectTemp = image.getDrawable().getBounds();
@@ -188,12 +196,16 @@ public class EditActivity extends Activity implements View.OnClickListener {
         switch ((v.getId())){
             case R.id.save:
                 Intent intent = new Intent();
-                //此处出错
+                bitmap = null;
+                try{
                 bitmap = Bitmap.createBitmap(((BitmapDrawable) image.getDrawable()).getBitmap(),
-                         (324),
-                         (324),
-                         (432),
-                         (432));
+                         (int) (((3*width)/10-left.x)/(right.x-left.x)*imageWidth),
+                         (int) (((3*width)/10-left.y)/(right.y-left.y)*imageHeight),
+                         (int) (2*width/5/(right.x-left.x)*imageWidth),
+                         (int) (2*width/5/(right.y-left.y)*imageHeight));
+                }catch (Exception e){
+                    e.printStackTrace();}
+
 
                     ByteArrayOutputStream stream = new ByteArrayOutputStream();
                     bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
@@ -211,18 +223,9 @@ public class EditActivity extends Activity implements View.OnClickListener {
                 }
                 else i++;
                 image.setImageResource(imageId[i]);
+                resleft = getLeftPointF();
+                resright = getRightPointF();
                 break;
         }
-    }
-    public static Bitmap scaleDownBitmap(Bitmap photo, int newHeight, Context context) {
-
-        final float densityMultiplier = context.getResources().getDisplayMetrics().density;
-
-        int h= (int) (newHeight*densityMultiplier);
-        int w= (int) (h * photo.getWidth()/((double) photo.getHeight()));
-
-        photo=Bitmap.createScaledBitmap(photo, w, h, true);
-
-        return photo;
     }
 }

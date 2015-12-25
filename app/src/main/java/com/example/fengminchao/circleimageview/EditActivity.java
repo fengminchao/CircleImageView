@@ -1,18 +1,10 @@
 package com.example.fengminchao.circleimageview;
 
 import android.app.Activity;
-import android.app.usage.UsageEvents;
-import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Matrix;
-import android.graphics.Paint;
-import android.graphics.Point;
 import android.graphics.PointF;
-import android.graphics.PorterDuff;
-import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.BitmapDrawable;
@@ -62,7 +54,9 @@ public class EditActivity extends Activity implements View.OnClickListener {
     private int width,height;
     private PointF resleft,resright;
     private float imageWidth,imageHeight;
+    private float srcimageWidth,srcimageHeight;
     CropView cropView;
+
 
     @Override
     protected void onCreate(final Bundle saveInstance) {
@@ -84,22 +78,31 @@ public class EditActivity extends Activity implements View.OnClickListener {
         back.setOnClickListener(this);
         change.setOnClickListener(this);
         image.setImageResource(imageId[i]);
+
         resleft = getLeftPointF();
         resright = getRightPointF();
         cropView = new CropView(this);
         frameLayout.addView(cropView);
+        srcimageWidth = image.getDrawable().getBounds().width();
+        srcimageHeight = image.getDrawable().getBounds().height();
         //图片的移动和缩放
         image.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 ImageView view = (ImageView) v;
-
+                float []values = new float[9];
+                image.setScaleType(ImageView.ScaleType.MATRIX);
+                srcimageWidth = image.getDrawable().getBounds().width();
+                srcimageHeight = image.getDrawable().getBounds().height();
                 switch (event.getAction() & MotionEvent.ACTION_MASK) {
                     case (MotionEvent.ACTION_DOWN):
+                        image.setScaleType(ImageView.ScaleType.MATRIX);
                         matrix.set(view.getImageMatrix());
                         savedMatrix.set(matrix);
                         start.set(event.getX(), event.getY());
                         mode = DRAG;
+
+
                         break;
                     case (MotionEvent.ACTION_POINTER_DOWN):
                         oldDistance = distance(event);
@@ -111,41 +114,31 @@ public class EditActivity extends Activity implements View.OnClickListener {
                         break;
                     case (MotionEvent.ACTION_UP):
                     case (MotionEvent.ACTION_POINTER_UP):
+                        savedMatrix.set(matrix);
                         mode = NONE;
                         break;
                     case (MotionEvent.ACTION_MOVE):
+                        left = getLeftPointF();
+                        right = getRightPointF();
+                        imageWidth = right.x - left.x;
+                        imageHeight = right.y - left.y;
+                        matrix.set(savedMatrix);
+                        matrix.getValues(values);
                         if (mode == DRAG) {
-                            left = getLeftPointF();
-                            right = getRightPointF();
 
-                            if (left.x > 0 && left.y > 0 && right.x < frameLayout.getWidth() && right.y < frameLayout.getHeight())
-                                matrix.set(savedMatrix);
-                            matrix.postTranslate(event.getX() - start.x, event.getY() - start.y);
-                            dx = dx + event.getX() - start.x;
-                            dy = dy + event.getY() - start.y;
-                            imageWidth = right.x-left.x;
+
+                            dx = event.getX() - start.x;
+                            dy = event.getY() - start.y;
+                            dx = checkXPosition(values, dx);
+                            dy = checkYPosition(values, dy);
+                            matrix.postTranslate(dx,dy);
+
+                        }else  if (mode == ZOOM) {
+                            imageWidth = right.x - left.x;
                             imageHeight = right.y - left.y;
-                        }
-                        if (left.x <= 0) {
-                            matrix.set((savedMatrix));
-                            matrix.postTranslate((event.getX() - start.x) >= 0 ? (event.getX() - start.x) : 0, event.getY() - start.y);
-                        }
-                        if (right.x >= frameLayout.getWidth()) {
-                            matrix.set((savedMatrix));
-                            matrix.postTranslate((event.getX() - start.x) <= 0 ? (event.getX() - start.x) : 0, event.getY() - start.y);
-                        }
-                        if (right.y >= frameLayout.getHeight()) {
-                            matrix.set((savedMatrix));
-                            matrix.postTranslate(event.getX()-start.x, (event.getY()-start.y) <= 0 ? (event.getY()-start.y) : 0);
-                        }
-                        if (left.y <= 0) {
-                            matrix.set((savedMatrix));
-                            matrix.postTranslate(event.getX()-start.x, (event.getY()-start.y) >= 0 ? (event.getY()-start.y) : 0);
-
-                        } else if (mode == ZOOM) {
+                            float newDistance = distance(event);
                             left = getLeftPointF();
                             right = getRightPointF();
-                            float newDistance = distance(event);
                             if (oldDistance > 10f) {
                                 matrix.set(savedMatrix);
                                 float scale = newDistance / oldDistance;
@@ -159,6 +152,28 @@ public class EditActivity extends Activity implements View.OnClickListener {
                 return true;
             }
         });
+        }
+
+
+    private float checkXPosition(float[] values,float dx){
+        if (imageWidth * values[Matrix.MSCALE_X] > width)
+            return  0;
+        if(values[Matrix.MTRANS_X] + dx > (3 * width /10)){
+            dx = -values[Matrix.MTRANS_X] + (3 * width /10);
+        }
+        if (values[Matrix.MTRANS_X] + dx + imageWidth < (7 * width / 10))
+            dx = 7 * width / 10 -imageWidth - values[Matrix.MTRANS_X];
+        return dx;
+    }
+    private float checkYPosition(float[] values,float dy){
+        if (imageHeight * values[Matrix.MSCALE_X] > height)
+            return  0;
+        if(values[Matrix.MTRANS_Y] + dy > (3 * width /10)){
+            dy = -values[Matrix.MTRANS_Y] + (3 * width /10);
+        }
+        if (values[Matrix.MTRANS_Y] + dy + imageHeight < (7 * width / 10))
+        dy = 7 * width / 10 - imageHeight - values[Matrix.MTRANS_Y];
+        return dy;
     }
     private float distance(MotionEvent event){
         float x = event.getX(0)-event.getX(1);
@@ -187,9 +202,9 @@ public class EditActivity extends Activity implements View.OnClickListener {
         Rect rectTemp = image.getDrawable().getBounds();
         float[] values = new float[9];
         matrix.getValues(values);
-        float leftX= values[2]+rectTemp.width()*values[0];
-        float leftY=values[5]+rectTemp.height()*values[4];
-        return new PointF(leftX,leftY);
+        float rightX= values[2]+rectTemp.width()*values[0];
+        float rightY=values[5]+rectTemp.height()*values[4];
+        return new PointF(rightX,rightY);
     }
     @Override
     public void onClick(View v){
@@ -199,10 +214,10 @@ public class EditActivity extends Activity implements View.OnClickListener {
                 bitmap = null;
                 try{
                 bitmap = Bitmap.createBitmap(((BitmapDrawable) image.getDrawable()).getBitmap(),
-                         (int) (((3*width)/10-left.x)/(right.x-left.x)*imageWidth),
-                         (int) (((3*width)/10-left.y)/(right.y-left.y)*imageHeight),
-                         (int) (2*width/5/(right.x-left.x)*imageWidth),
-                         (int) (2*width/5/(right.y-left.y)*imageHeight));
+                         (int) (((3*width)/10-left.x)/(right.x-left.x)*srcimageWidth),
+                         (int) (((3*width)/10-left.y)/(right.y-left.y)*srcimageHeight),
+                         (int) (2*(float)(width)/5/(right.x-left.x)*srcimageWidth),
+                         (int) (2*(float)(width)/5/(right.y-left.y)*srcimageHeight));
                 }catch (Exception e){
                     e.printStackTrace();}
 

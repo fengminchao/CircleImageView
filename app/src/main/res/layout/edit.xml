@@ -10,7 +10,7 @@
         <ImageView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:scaleType="matrix"
+            android:scaleType="fitStart"
             android:layout_gravity="center"
             android:id="@+id/image"/>
     </FrameLayout>
@@ -24,7 +24,6 @@
             android:layout_height="match_parent"
             android:id="@+id/back"
             android:layout_weight="1"
-
             android:text="取消"/>
         <Button
             android:layout_width="match_parent"
